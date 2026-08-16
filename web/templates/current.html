@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+
+{% block title %}Enviro — Current Readings{% endblock %}
+
+{% block content %}
+<h1>Current Readings</h1>
+<div id="last-updated" class="updated">Loading...</div>
+
+<div class="card-grid">
+    <!-- Temperature -->
+    <div class="card">
+        <div class="card-icon">&#x26cc;</div>
+        <div class="card-label">Temperature</div>
+        <div class="card-value" id="temp-display">—</div>
+        <div class="card-hl">
+            <span id="temp-high">H: —</span>
+            <span id="temp-low">L: —</span>
+        </div>
+    </div>
+
+    <!-- Humidity -->
+    <div class="card">
+        <div class="card-icon">&#x26c5;</div>
+        <div class="card-label">Humidity</div>
+        <div class="card-value" id="humidity">—</div>
+        <div class="card-hl">
+            <span id="hum-high">H: —</span>
+            <span id="hum-low">L: —</span>
+        </div>
+    </div>
+
+    <!-- Pressure -->
+    <div class="card">
+        <div class="card-icon">&#x25cd;</div>
+        <div class="card-label">Pressure</div>
+        <div class="card-value" id="pressure">—</div>
+        <div class="card-hl">
+            <span id="pres-high">H: —</span>
+            <span id="pres-low">L: —</span>
+        </div>
+    </div>
+
+    <!-- Light -->
+    <div class="card">
+        <div class="card-icon">&#x2605;</div>
+        <div class="card-label">Light</div>
+        <div class="card-value" id="light">—</div>
+        <div class="card-hl">
+            <span id="light-high">H: —</span>
+            <span id="light-low">L: —</span>
+        </div>
+    </div>
+
+    <!-- NO2 -->
+    <div class="card">
+        <div class="card-label">NO<sub>2</sub> (Nitrogen Dioxide)</div>
+        <div class="card-value quality" id="no2-quality">—</div>
+        <div class="card-raw" id="no2-raw"></div>
+    </div>
+
+    <!-- CO -->
+    <div class="card">
+        <div class="card-label">CO (Carbon Monoxide)</div>
+        <div class="card-value quality" id="co-quality">—</div>
+        <div class="card-raw" id="co-raw"></div>
+    </div>
+
+    <!-- NH3 -->
+    <div class="card">
+        <div class="card-label">NH<sub>3</sub> (Ammonia)</div>
+        <div class="card-value quality" id="nh3-quality">—</div>
+        <div class="card-raw" id="nh3-raw"></div>
+    </div>
+
+    <!-- LDR -->
+    <div class="card">
+        <div class="card-label">LDR (Onboard Light)</div>
+        <div class="card-value" id="ldr">—</div>
+    </div>
+</div>
+
+<!-- Gas sensor warmup indicator -->
+<div id="warmup-banner" class="banner hidden">
+    <span>&#x1f525; Gas sensor warming up...</span>
+    <div class="progress-bar">
+        <div class="progress-fill" id="warmup-progress"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const REFRESH_INTERVAL = {{ refresh_interval }} * 1000;
+
+function qualityColor(q) {
+    const colors = {
+        'Good': '#00c850',
+        'Moderate': '#dcb800',
+        'Poor': '#f08c00',
+        'Unhealthy': '#dc2828',
+    };
+    return colors[q] || '#78788c';
+}
+
+function update() {
+    fetch('/api/current')
+        .then(r => r.json())
+        .then(data => {
+            // Temperature
+            document.getElementById('temp-display').textContent =
+                data.temperature_display || '—';
+
+            // Humidity
+            document.getElementById('humidity').textContent =
+                data.humidity != null ? data.humidity + '%' : '—';
+
+            // Pressure
+            document.getElementById('pressure').textContent =
+                data.pressure != null ? data.pressure + ' hPa' : '—';
+
+            // Light
+            document.getElementById('light').textContent =
+                data.light != null ? Math.round(data.light) + ' lx' : '—';
+
+            // Daily H/L
+            const d = data.daily || {};
+            const unit = data.unit === 'F' ? '°F' : '°C';
+            document.getElementById('temp-high').textContent =
+                d.temp_high != null ? 'H: ' + d.temp_high.toFixed(1) + unit : '';
+            document.getElementById('temp-low').textContent =
+                d.temp_low != null ? 'L: ' + d.temp_low.toFixed(1) + unit : '';
+            document.getElementById('hum-high').textContent =
+                d.hum_high != null ? 'H: ' + d.hum_high.toFixed(0) + '%' : '';
+            document.getElementById('hum-low').textContent =
+                d.hum_low != null ? 'L: ' + d.hum_low.toFixed(0) + '%' : '';
+            document.getElementById('pres-high').textContent =
+                d.pressure_high != null ? 'H: ' + d.pressure_high.toFixed(1) : '';
+            document.getElementById('pres-low').textContent =
+                d.pressure_low != null ? 'L: ' + d.pressure_low.toFixed(1) : '';
+            document.getElementById('light-high').textContent =
+                d.light_high != null ? 'H: ' + Math.round(d.light_high) : '';
+            document.getElementById('light-low').textContent =
+                d.light_low != null ? 'L: ' + Math.round(d.light_low) : '';
+
+            // Gas quality
+            ['no2', 'co', 'nh3'].forEach(gas => {
+                const qEl = document.getElementById(gas + '-quality');
+                const rawEl = document.getElementById(gas + '-raw');
+                const q = data[gas + '_quality'] || 'N/A';
+                qEl.textContent = q;
+                qEl.style.color = qualityColor(q);
+                const ppm = data[gas + '_ppm'];
+                const raw = data[gas + '_raw'];
+                if (ppm != null) {
+                    const decimals = gas === 'no2' ? 3 : 2;
+                    rawEl.textContent = ppm.toFixed(decimals) + ' ppm';
+                } else {
+                    rawEl.textContent = raw != null ? 'Raw: ' + raw : '';
+                }
+            });
+
+            // LDR
+            document.getElementById('ldr').textContent =
+                data.ldr != null ? data.ldr : '—';
+
+            // Warmup banner
+            const banner = document.getElementById('warmup-banner');
+            const fill = document.getElementById('warmup-progress');
+            if (data.gas_warmed_up) {
+                banner.classList.add('hidden');
+            } else {
+                banner.classList.remove('hidden');
+                fill.style.width = (data.warmup_progress * 100) + '%';
+            }
+
+            // Timestamp
+            document.getElementById('last-updated').textContent =
+                'Updated: ' + data.timestamp;
+        })
+        .catch(err => {
+            document.getElementById('last-updated').textContent =
+                'Error: ' + err.message;
+        });
+}
+
+update();
+setInterval(update, REFRESH_INTERVAL);
+</script>
+{% endblock %}

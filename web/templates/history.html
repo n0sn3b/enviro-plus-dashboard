@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block title %}Enviro — History{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<h1>Sensor History</h1>
+
+<div class="chart-controls">
+    <label>Time range:</label>
+    <select id="hours-select">
+        <option value="1">Last 1 hour</option>
+        <option value="6">Last 6 hours</option>
+        <option value="24" selected>Last 24 hours</option>
+        <option value="168">Last 7 days</option>
+        <option value="720">Last 30 days</option>
+    </select>
+    <button id="export-btn" onclick="window.location.href='/export?hours=' + document.getElementById('hours-select').value">
+        &#x2b07; Export CSV
+    </button>
+</div>
+
+<div class="sensor-selector">
+    <button class="sensor-tab active" data-sensor="temperature">Temperature</button>
+    <button class="sensor-tab" data-sensor="humidity">Humidity</button>
+    <button class="sensor-tab" data-sensor="pressure">Pressure</button>
+    <button class="sensor-tab" data-sensor="light">Light</button>
+    <button class="sensor-tab" data-sensor="no2_ppm">NO<sub>2</sub></button>
+    <button class="sensor-tab" data-sensor="co_ppm">CO</button>
+    <button class="sensor-tab" data-sensor="nh3_ppm">NH<sub>3</sub></button>
+</div>
+
+<div class="chart-container">
+    <canvas id="chart"></canvas>
+</div>
+
+<div class="chart-stats" id="chart-stats">
+    <span id="chart-min">Min: —</span>
+    <span id="chart-max">Max: —</span>
+    <span id="chart-avg">Avg: —</span>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const SENSOR_LABELS = {
+    temperature: { label: 'Temperature', unit: '°C', color: '#dc2828' },
+    humidity: { label: 'Humidity', unit: '%', color: '#5088d8' },
+    pressure: { label: 'Pressure', unit: 'hPa', color: '#00c850' },
+    light: { label: 'Light', unit: 'lx', color: '#dcb800' },
+    no2_ppm: { label: 'NO₂ (ppm)', unit: 'ppm', color: '#f08c00' },
+    co_ppm: { label: 'CO (ppm)', unit: 'ppm', color: '#dc2828' },
+    nh3_ppm: { label: 'NH₃ (ppm)', unit: 'ppm', color: '#8850d8' },
+    no2_raw: { label: 'NO₂ (raw)', unit: '', color: '#f08c00' },
+    co_raw: { label: 'CO (raw)', unit: '', color: '#dc2828' },
+    nh3_raw: { label: 'NH₃ (raw)', unit: '', color: '#8850d8' },
+};
+
+let chart = null;
+let currentSensor = 'temperature';
+
+function loadChart() {
+    const hours = document.getElementById('hours-select').value;
+    const info = SENSOR_LABELS[currentSensor];
+
+    fetch(`/api/chart?sensor=${currentSensor}&hours=${hours}`)
+        .then(r => r.json())
+        .then(data => {
+            const points = data.data || [];
+            const labels = points.map(p => p.timestamp);
+            const values = points.map(p => p.value);
+
+            // Stats
+            if (values.length > 0) {
+                const min = Math.min(...values.filter(v => v != null));
+                const max = Math.max(...values.filter(v => v != null));
+                const avg = values.reduce((a, b) => a + b, 0) / values.length;
+                document.getElementById('chart-min').textContent =
+                    `Min: ${min.toFixed(1)} ${info.unit}`;
+                document.getElementById('chart-max').textContent =
+                    `Max: ${max.toFixed(1)} ${info.unit}`;
+                document.getElementById('chart-avg').textContent =
+                    `Avg: ${avg.toFixed(1)} ${info.unit}`;
+            } else {
+                document.getElementById('chart-min').textContent = 'Min: —';
+                document.getElementById('chart-max').textContent = 'Max: —';
+                document.getElementById('chart-avg').textContent = 'Avg: —';
+            }
+
+            // Chart
+            if (chart) {
+                chart.data.labels = labels;
+                chart.data.datasets[0].data = values;
+                chart.data.datasets[0].label = `${info.label} (${info.unit})`;
+                chart.data.datasets[0].backgroundColor = info.color + '40';
+                chart.data.datasets[0].borderColor = info.color;
+                chart.update();
+            } else {
+                const ctx = document.getElementById('chart').getContext('2d');
+                chart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: `${info.label} (${info.unit})`,
+                            data: values,
+                            fill: true,
+                            backgroundColor: info.color + '40',
+                            borderColor: info.color,
+                            borderWidth: 1.5,
+                            pointRadius: 0,
+                            pointHitRadius: 10,
+                            tension: 0.3,
+                        }],
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            intersect: false,
+                            mode: 'index',
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    title: function(items) {
+                                        return new Date(items[0].label).toLocaleString();
+                                    },
+                                    label: function(item) {
+                                        return `${item.dataset.label}: ${item.raw.toFixed(1)} ${info.unit}`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                type: 'category',
+                                ticks: {
+                                    maxTicksLimit: 12,
+                                    callback: function(val, i) {
+                                        const d = new Date(this.getLabelForValue(val));
+                                        return d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                                    }
+                                }
+                            },
+                            y: {
+                                beginAtZero: false,
+                            }
+                        }
+                    }
+                });
+            }
+        })
+        .catch(err => console.error('Chart load error:', err));
+}
+
+// Sensor tab switching
+document.querySelectorAll('.sensor-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.sensor-tab').forEach(b =>
+            b.classList.remove('active'));
+        btn.classList.add('active');
+        currentSensor = btn.dataset.sensor;
+        loadChart();
+    });
+});
+
+// Time range change
+document.getElementById('hours-select').addEventListener('change', loadChart);
+
+// Initial load
+loadChart();
+
+// Auto-refresh every 30 seconds
+setInterval(loadChart, 30000);
+</script>
+{% endblock %}

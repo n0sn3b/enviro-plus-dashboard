@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Enviro Dashboard{% endblock %}</title>
+    <link rel="stylesheet" href="/static/style.css">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <nav class="nav">
+        <a href="/" class="{% if request.path == '/' %}active{% endif %}">Current</a>
+        <a href="/history" class="{% if request.path == '/history' %}active{% endif %}">History</a>
+        <a href="/settings" class="{% if request.path == '/settings' %}active{% endif %}">Settings</a>
+    </nav>
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,25 @@
+; Systemd service template. Copy to /etc/systemd/system/enviro.service
+; and adjust the User / paths for your Pi:
+;
+;   sudo cp enviro.service.example /etc/systemd/system/enviro.service
+;   sudo systemctl daemon-reload
+;   sudo systemctl enable --now enviro.service
+;
+; Logs:  journalctl -u enviro.service -f
+
+[Unit]
+Description=Enviro + Air Quality Dashboard
+After=network.target
+
+[Service]
+Type=simple
+User=YOUR_USER
+WorkingDirectory=/home/YOUR_USER/enviro_dashboard
+ExecStart=/home/YOUR_USER/.venv/bin/python /home/YOUR_USER/enviro_dashboard/main.py
+Restart=always
+RestartSec=5
+Environment=VIRTUAL_ENV=/home/YOUR_USER/.venv
+Environment=PATH=/home/YOUR_USER/.venv/bin:/usr/local/bin:/usr/bin:/bin
+
+[Install]
+WantedBy=multi-user.target

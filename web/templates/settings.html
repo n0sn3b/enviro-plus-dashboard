@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+
+{% block title %}Enviro — Settings{% endblock %}
+
+{% block content %}
+<h1>Settings</h1>
+
+<div class="settings-grid">
+    <!-- Gas Calibration -->
+    <div class="settings-section">
+        <h2>&#x1f9ea; Gas Calibration</h2>
+        <p class="help">Clean-air R0 baseline converts gas resistances to ppm.
+            Put the sensor in fresh/clean air, then click <em>Recalibrate now</em>.</p>
+        <form id="gas-form">
+            <div class="form-row">
+                <label>Temperature comp mode</label>
+                <select name="temp_comp_mode">
+                    <option value="polynomial" {% if config.TEMP_COMP_MODE == 'polynomial' %}selected{% endif %}>Polynomial (cubic, CPU-heat)</option>
+                    <option value="offset" {% if config.TEMP_COMP_MODE == 'offset' %}selected{% endif %}>Offset only</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <label>Humidity comp mode</label>
+                <select name="hum_comp_mode">
+                    <option value="offset" {% if config.HUM_COMP_MODE == 'offset' %}selected{% endif %}>Offset only</option>
+                    <option value="quadratic" {% if config.HUM_COMP_MODE == 'quadratic' %}selected{% endif %}>Quadratic</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <label>Daily R0 calibration hour (0-23)</label>
+                <input type="number" min="0" max="23" name="gas_calibration_hour"
+                       value="{{ config.GAS_CALIBRATION_HOUR }}">
+            </div>
+            <div class="form-row">
+                <label>Altitude (m above sea level)</label>
+                <input type="number" step="1" name="altitude"
+                       value="{{ config.ALTITUDE }}">
+                <span class="help">Converts pressure to sea-level (QNH) so it matches weather reports.</span>
+            </div>
+            <div class="form-row checkbox">
+                <label>
+                    <input type="checkbox" name="reset_gas_calibration"
+                           {% if config.RESET_GAS_CALIBRATION %}checked{% endif %}>
+                    Reset baseline on next warm read
+                </label>
+            </div>
+            <button type="submit" class="btn">&#x2714; Save Gas Calibration</button>
+            <button type="button" class="btn" onclick="recalibrateGas()">&#x21bb; Recalibrate now</button>
+        </form>
+        <div id="gas-msg" class="msg hidden"></div>
+    </div>
+
+    <!-- Display -->
+    <div class="settings-section">
+        <h2>&#x1f5a5; Display</h2>
+        <form id="display-form">
+            <div class="form-row">
+                <label>Temperature unit</label>
+                <select name="unit">
+                    <option value="C" {% if config.UNIT == 'C' %}selected{% endif %}>Celsius (°C)</option>
+                    <option value="F" {% if config.UNIT == 'F' %}selected{% endif %}>Fahrenheit (°F)</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <label>Sensor read interval (sec)</label>
+                <input type="number" name="read_interval"
+                       value="{{ config.READ_INTERVAL }}">
+            </div>
+            <button type="submit" class="btn">&#x2714; Save Display</button>
+        </form>
+        <div id="display-msg" class="msg hidden"></div>
+    </div>
+
+    <!-- Logging -->
+    <div class="settings-section">
+        <h2>&#x1f4cb; Logging</h2>
+        <form id="logging-form">
+            <div class="form-row">
+                <label>Record interval (sec)</label>
+                <input type="number" name="record_interval"
+                       value="{{ config.RECORD_INTERVAL }}">
+            </div>
+            <div class="form-row">
+                <label>Database path</label>
+                <input type="text" readonly value="{{ db_path }}" class="readonly">
+            </div>
+            <div class="form-row">
+                <label>Total readings</label>
+                <input type="text" readonly value="{{ reading_count }}" class="readonly">
+            </div>
+            <button type="submit" class="btn">&#x2714; Save Logging</button>
+        </form>
+        <div id="logging-msg" class="msg hidden"></div>
+        <div class="form-row" style="margin-top: 12px;">
+            <button class="btn danger" onclick="purgeOld()">&#x1f5d1; Purge readings older than 90 days</button>
+        </div>
+    </div>
+
+    <!-- Sync -->
+    <div class="settings-section">
+        <h2>&#x1f4be; NAS Sync</h2>
+        <form id="sync-form">
+            <div class="form-row checkbox">
+                <label>
+                    <input type="checkbox" name="sync_enabled"
+                           {% if config.SYNC_ENABLED %}checked{% endif %}>
+                    Enable sync to NAS
+                </label>
+            </div>
+            <div class="form-row">
+                <label>Remote (user@host:/path/)</label>
+                <input type="text" name="sync_remote"
+                       value="{{ config.SYNC_REMOTE }}"
+                       placeholder="pi@192.168.1.100:/backup/enviro.db">
+            </div>
+            <div class="form-row">
+                <label>Sync interval (sec)</label>
+                <input type="number" name="sync_interval"
+                       value="{{ config.SYNC_INTERVAL }}">
+            </div>
+            <button type="submit" class="btn">&#x2714; Save Sync</button>
+        </form>
+        <div id="sync-msg" class="msg hidden"></div>
+        <div class="form-row" style="margin-top: 12px;">
+            <button class="btn" onclick="forceSync()">&#x27f3; Force sync now</button>
+        </div>
+        <p class="help">Requires SSH access to the NAS. The Pi must be able to connect to the NAS without a password (SSH keys recommended).</p>
+    </div>
+
+    <!-- Web -->
+    <div class="settings-section">
+        <h2>&#x1f310; Web Dashboard</h2>
+        <form id="web-form">
+            <div class="form-row">
+                <label>Port</label>
+                <input type="number" name="port" value="{{ config.WEB_PORT }}">
+            </div>
+            <div class="form-row">
+                <label>Page refresh interval (sec)</label>
+                <input type="number" name="refresh_interval"
+                       value="{{ config.WEB_REFRESH }}">
+            </div>
+            <button type="submit" class="btn">&#x2714; Save Web</button>
+        </form>
+        <div id="web-msg" class="msg hidden"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showMsg(id, text, ok) {
+    const el = document.getElementById(id);
+    el.textContent = text;
+    el.className = 'msg ' + (ok ? 'success' : 'error');
+    setTimeout(() => el.classList.add('hidden'), 3000);
+}
+
+// Generic settings forms
+['display', 'logging', 'sync', 'web', 'gas'].forEach(section => {
+    document.getElementById(section + '-form').addEventListener('submit', e => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        fetch('/settings', {
+            method: 'POST',
+            body: fd,
+        })
+        .then(r => r.json())
+        .then(data => showMsg(section + '-msg', data.message, true))
+        .catch(err => showMsg(section + '-msg', err.message, false));
+    });
+});
+
+function recalibrateGas() {
+    if (!confirm('Recalibrate gas baseline now? The sensor must be in clean air and warmed up.')) return;
+    fetch('/api/gas/calibrate', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                showMsg('gas-msg',
+                    data.message + ' (NO2 ' + data.r0.no2 + 'Ω, CO ' + data.r0.co + 'Ω, NH3 ' + data.r0.nh3 + 'Ω)',
+                    true);
+            } else {
+                showMsg('gas-msg', data.error || 'Calibration failed', false);
+            }
+        })
+        .catch(err => showMsg('gas-msg', err.message, false));
+}
+
+function forceSync() {
+    fetch('/sync/force', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            showMsg('sync-msg', data.message || data.error, !data.error);
+        })
+        .catch(err => showMsg('sync-msg', err.message, false));
+}
+
+function purgeOld() {
+    if (!confirm('Delete readings older than 90 days?')) return;
+    fetch('/purge?days=90', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => alert('Deleted ' + data.deleted + ' old readings'))
+        .catch(err => alert('Error: ' + err.message));
+}
+</script>
+{% endblock %}

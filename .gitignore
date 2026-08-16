@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+*.pyo
+enviro_data.db
+enviro_data.db-wal
+enviro_data.db-shm
+*.log
+venv/
+.venv/
+
+# Device-specific calibration and config
+settings.ini
+gas_calibration.json
+enviro.service
