@@ -1,9 +1,0 @@
-[Unit]
-Description=Automount SSHFS to NAS for enviro data
-
-[Automount]
-Where=/mnt/nas
-TimeoutIdleSec=300
-
-[Install]
-WantedBy=multi-user.target
