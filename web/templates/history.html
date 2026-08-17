@@ -71,7 +71,7 @@ function loadChart() {
         .then(r => r.json())
         .then(data => {
             const points = data.data || [];
-            const labels = points.map(p => p.timestamp);
+            const chartData = points.map(p => ({x: p.timestamp, y: p.value}));
             const values = points.map(p => p.value);
 
             // Stats
@@ -93,8 +93,7 @@ function loadChart() {
 
             // Chart
             if (chart) {
-                chart.data.labels = labels;
-                chart.data.datasets[0].data = values;
+                chart.data.datasets[0].data = chartData;
                 chart.data.datasets[0].label = `${info.label} (${info.unit})`;
                 chart.data.datasets[0].backgroundColor = info.color + '40';
                 chart.data.datasets[0].borderColor = info.color;
@@ -104,10 +103,9 @@ function loadChart() {
                 chart = new Chart(ctx, {
                     type: 'line',
                     data: {
-                        labels: labels,
                         datasets: [{
                             label: `${info.label} (${info.unit})`,
-                            data: values,
+                            data: chartData,
                             fill: true,
                             backgroundColor: info.color + '40',
                             borderColor: info.color,
@@ -115,6 +113,7 @@ function loadChart() {
                             pointRadius: 0,
                             pointHitRadius: 10,
                             tension: 0.3,
+                            spanGaps: true,
                         }],
                     },
                     options: {
@@ -129,22 +128,24 @@ function loadChart() {
                             tooltip: {
                                 callbacks: {
                                     title: function(items) {
-                                        return new Date(items[0].label).toLocaleString();
+                                        return new Date(items[0].parsed.x).toLocaleString();
                                     },
                                     label: function(item) {
-                                        return `${item.dataset.label}: ${item.raw.toFixed(1)} ${info.unit}`;
+                                        return `${item.dataset.label}: ${item.raw.y.toFixed(1)} ${info.unit}`;
                                     }
                                 }
                             }
                         },
                         scales: {
                             x: {
-                                type: 'category',
+                                type: 'time',
+                                time: {
+                                    tooltipFormat: 'MMM d, HH:mm',
+                                },
                                 ticks: {
                                     maxTicksLimit: 12,
-                                    callback: function(val, i) {
-                                        const d = new Date(this.getLabelForValue(val));
-                                        return d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                                    callback: function(val) {
+                                        return new Date(val).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                                     }
                                 }
                             },
