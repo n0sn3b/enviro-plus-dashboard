@@ -221,15 +221,21 @@ def logging_loop():
     """Background loop: record sensor readings to SQLite."""
     global running
     last_record = 0
+    boot_time = time.time()
 
     while running:
         try:
             now = time.time()
             if now - last_record >= Config.RECORD_INTERVAL:
-                raw = sensors.read_all()
-                db.insert_reading(raw)
-                last_record = now
-                logger.debug(f"Recorded reading (total: {db.reading_count()})")
+                if not sensors.gas_is_warmed_up:
+                    logger.debug("Skipping recording — gas sensor still warming up")
+                elif now - boot_time < 60:
+                    logger.debug("Skipping recording — sensor stabilization period")
+                else:
+                    raw = sensors.read_all()
+                    db.insert_reading(raw)
+                    last_record = now
+                    logger.debug(f"Recorded reading (total: {db.reading_count()})")
         except Exception as e:
             logger.error(f"Logging loop error: {e}")
         time.sleep(1)

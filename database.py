@@ -158,17 +158,20 @@ class SensorDatabase:
                 return dict(row)
             return None
 
-    def historical_readings(self, hours=24, limit=1000):
+    def historical_readings(self, hours=24, limit=None):
         """
         Get readings going back `hours` hours.
 
         Args:
             hours: How many hours of history to retrieve.
-            limit: Max rows to return.
+            limit: Max rows to return (default: enough for 1 reading/min).
 
         Returns:
             List of dicts, ordered by timestamp ascending.
         """
+        if limit is None:
+            limit = hours * 60 + 100
+
         since = (
             datetime.now(timezone.utc) - timedelta(hours=hours)
         ).isoformat()
@@ -183,7 +186,7 @@ class SensorDatabase:
             rows = conn.execute(query, (since, limit)).fetchall()
             return [dict(r) for r in rows]
 
-    def readings_for_chart(self, sensor, hours=24, limit=1000):
+    def readings_for_chart(self, sensor, hours=24, limit=None):
         """
         Get timestamp + single sensor column for charting.
 
@@ -206,6 +209,9 @@ class SensorDatabase:
         col = col_map.get(sensor)
         if not col:
             return []
+
+        if limit is None:
+            limit = hours * 60 + 100
 
         since = (
             datetime.now(timezone.utc) - timedelta(hours=hours)
