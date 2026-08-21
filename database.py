@@ -15,6 +15,8 @@ Features:
 """
 
 import sqlite3
+import threading
+import time
 from datetime import datetime, timedelta, timezone
 
 
@@ -59,20 +61,30 @@ class SensorDatabase:
 
     def __init__(self, db_path):
         self.db_path = db_path
+        self._lock = threading.Lock()
+        self._conn = None
+        self._daily_cache = None
+        self._daily_cache_time = 0
+        self._daily_cache_date = None
         self._ensure_schema()
 
     def _get_conn(self):
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA journal_mode=WAL")  # Better concurrent read/write
-        return conn
+        """Return the single persistent connection (thread-safe via lock)."""
+        if self._conn is None:
+            self._conn = sqlite3.connect(self.db_path, check_same_thread=False)
+            self._conn.row_factory = sqlite3.Row
+            self._conn.execute("PRAGMA journal_mode=DELETE")
+            self._conn.execute("PRAGMA busy_timeout=5000")
+        return self._conn
 
     def _ensure_schema(self):
-        with self._get_conn() as conn:
+        with self._lock:
+            conn = self._get_conn()
             conn.execute(self.CREATE_TABLE)
             self._migrate(conn)
             conn.execute(self.CREATE_INDEX)
             conn.commit()
+
 
     def _migrate(self, conn):
         """Add any missing columns to an existing readings table."""
@@ -84,6 +96,10 @@ class SensorDatabase:
             if col not in existing:
                 conn.execute(f"ALTER TABLE readings ADD COLUMN {col} {coltype}")
 
+    def _checkpoint_if_needed(self):
+        """No-op — DELETE journal mode doesn't produce a WAL file."""
+        pass
+
     def insert_reading(self, data):
         """
         Insert a single sensor reading.
@@ -93,7 +109,8 @@ class SensorDatabase:
                   Missing/None values are stored as NULL.
         """
         ts = datetime.now(timezone.utc).isoformat()
-        with self._get_conn() as conn:
+        with self._lock:
+            conn = self._get_conn()
             conn.execute(self.INSERT, (
                 ts,
                 data.get("temperature"),
@@ -109,48 +126,53 @@ class SensorDatabase:
                 data.get("nh3_ppm"),
             ))
             conn.commit()
+            self._checkpoint_if_needed()
 
     def daily_high_low(self, now=None):
         """
         Get daily high/low for each numeric sensor since midnight UTC.
 
-        Returns dict:
-        {
-            "temp_high": float, "temp_low": float,
-            "hum_high": float, "hum_low": float,
-            "pressure_high": float, "pressure_low": float,
-            "light_high": float, "light_low": float,
-            "no2_raw_high": int, "no2_raw_low": int,
-            "co_raw_high": int, "co_raw_low": int,
-            "nh3_raw_high": int, "nh3_raw_low": int,
-        }
+        Cached for 60 seconds to avoid hammering SQLite from the display loop.
         """
         if now is None:
             now = datetime.now(timezone.utc)
-        midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        since = midnight.isoformat()
+        today = now.date()
 
-        query = """
-            SELECT
-                MAX(temperature) as temp_high, MIN(temperature) as temp_low,
-                MAX(humidity) as hum_high, MIN(humidity) as hum_low,
-                MAX(pressure) as pressure_high, MIN(pressure) as pressure_low,
-                MAX(light) as light_high, MIN(light) as light_low,
-                MAX(no2_raw) as no2_raw_high, MIN(no2_raw) as no2_raw_low,
-                MAX(co_raw) as co_raw_high, MIN(co_raw) as co_raw_low,
-                MAX(nh3_raw) as nh3_raw_high, MIN(nh3_raw) as nh3_raw_low
-            FROM readings
-            WHERE timestamp >= ?
-        """
-        with self._get_conn() as conn:
+        with self._lock:
+            # Return cache if fresh (< 60s) and same day
+            if (self._daily_cache is not None
+                    and self._daily_cache_date == today
+                    and (time.time() - self._daily_cache_time) < 60):
+                return self._daily_cache
+
+            midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            since = midnight.isoformat()
+
+            query = """
+                SELECT
+                    MAX(temperature) as temp_high, MIN(temperature) as temp_low,
+                    MAX(humidity) as hum_high, MIN(humidity) as hum_low,
+                    MAX(pressure) as pressure_high, MIN(pressure) as pressure_low,
+                    MAX(light) as light_high, MIN(light) as light_low,
+                    MAX(no2_raw) as no2_raw_high, MIN(no2_raw) as no2_raw_low,
+                    MAX(co_raw) as co_raw_high, MIN(co_raw) as co_raw_low,
+                    MAX(nh3_raw) as nh3_raw_high, MIN(nh3_raw) as nh3_raw_low
+                FROM readings
+                WHERE timestamp >= ?
+            """
+            conn = self._get_conn()
             row = conn.execute(query, (since,)).fetchone()
-            if row:
-                return dict(row)
-            return {}
+            result = dict(row) if row else {}
+
+            self._daily_cache = result
+            self._daily_cache_time = time.time()
+            self._daily_cache_date = today
+            return result
 
     def latest_reading(self):
         """Get the most recent reading."""
-        with self._get_conn() as conn:
+        with self._lock:
+            conn = self._get_conn()
             row = conn.execute(
                 "SELECT * FROM readings ORDER BY id DESC LIMIT 1"
             ).fetchone()
@@ -182,7 +204,8 @@ class SensorDatabase:
             ORDER BY timestamp ASC
             LIMIT ?
         """
-        with self._get_conn() as conn:
+        with self._lock:
+            conn = self._get_conn()
             rows = conn.execute(query, (since, limit)).fetchall()
             return [dict(r) for r in rows]
 
@@ -223,13 +246,15 @@ class SensorDatabase:
             ORDER BY timestamp ASC
             LIMIT ?
         """
-        with self._get_conn() as conn:
+        with self._lock:
+            conn = self._get_conn()
             rows = conn.execute(query, (since, limit)).fetchall()
             return [dict(r) for r in rows]
 
     def reading_count(self):
         """Total number of readings in the database."""
-        with self._get_conn() as conn:
+        with self._lock:
+            conn = self._get_conn()
             row = conn.execute("SELECT COUNT(*) as cnt FROM readings").fetchone()
             return row["cnt"] if row else 0
 
@@ -242,7 +267,8 @@ class SensorDatabase:
         cutoff = (
             datetime.now(timezone.utc) - timedelta(days=keep_days)
         ).isoformat()
-        with self._get_conn() as conn:
+        with self._lock:
+            conn = self._get_conn()
             result = conn.execute(
                 "DELETE FROM readings WHERE timestamp < ?", (cutoff,)
             )
