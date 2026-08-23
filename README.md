@@ -12,10 +12,9 @@ Environmental monitoring dashboard for the **Pimoroni Enviro + Air Quality (PIM4
 - **NAS sync** — automatic SCP backup of the database
 - **Calibration** — adjustable offsets for all sensors
 
-
-
-
-
+<img width="2874" height="1330" alt="enviro1" src="https://github.com/user-attachments/assets/e8827ddb-3195-4008-9d5b-713c0981de1e" />
+<img width="2872" height="1328" alt="enviro2" src="https://github.com/user-attachments/assets/d7025ecf-dde6-483c-a410-e616daa7b861" />
+<img width="2842" height="1320" alt="enviro3" src="https://github.com/user-attachments/assets/ea68f046-c5e1-4a1b-a000-08c785fa0900" />
 
 ## Setup
 
