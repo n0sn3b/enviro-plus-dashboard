@@ -174,6 +174,18 @@ document.querySelectorAll('.sensor-tab').forEach(btn => {
 // Time range change
 document.getElementById('hours-select').addEventListener('change', loadChart);
 
+// Sensor preselect from URL (?sensor=temperature), e.g. clicking a card
+// on the Current page
+const urlSensor = new URLSearchParams(location.search).get('sensor');
+if (urlSensor) {
+    const tab = document.querySelector(`.sensor-tab[data-sensor="${urlSensor}"]`);
+    if (tab) {
+        document.querySelectorAll('.sensor-tab').forEach(b => b.classList.remove('active'));
+        tab.classList.add('active');
+        currentSensor = urlSensor;
+    }
+}
+
 // Initial load
 loadChart();
 

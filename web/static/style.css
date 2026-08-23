@@ -130,6 +130,16 @@ h1 {
     color: var(--text-dim);
 }
 
+/* Clickable cards (link to history charts) */
+.card.clickable {
+    cursor: pointer;
+    transition: border-color 0.15s;
+}
+
+.card.clickable:hover {
+    border-color: var(--accent);
+}
+
 /* Warmup banner */
 .banner {
     margin-top: 16px;

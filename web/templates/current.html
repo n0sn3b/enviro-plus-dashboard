@@ -8,7 +8,7 @@
 
 <div class="card-grid">
     <!-- Temperature -->
-    <div class="card">
+    <div class="card clickable" onclick="location.href='/history?sensor=temperature'">
         <div class="card-icon">&#x1f321;</div>
         <div class="card-label">Temperature</div>
         <div class="card-value" id="temp-display">—</div>
@@ -19,7 +19,7 @@
     </div>
 
     <!-- Humidity -->
-    <div class="card">
+    <div class="card clickable" onclick="location.href='/history?sensor=humidity'">
         <div class="card-icon">&#x1f4a7;</div>
         <div class="card-label">Humidity</div>
         <div class="card-value" id="humidity">—</div>
@@ -30,7 +30,7 @@
     </div>
 
     <!-- Pressure -->
-    <div class="card">
+    <div class="card clickable" onclick="location.href='/history?sensor=pressure'">
         <div class="card-icon">&#x1f300;</div>
         <div class="card-label">Pressure</div>
         <div class="card-value" id="pressure">—</div>
@@ -41,7 +41,7 @@
     </div>
 
     <!-- Light -->
-    <div class="card">
+    <div class="card clickable" onclick="location.href='/history?sensor=light'">
         <div class="card-icon">&#x2600;&#xfe0f;</div>
         <div class="card-label">Light</div>
         <div class="card-value" id="light">—</div>
@@ -52,7 +52,7 @@
     </div>
 
     <!-- NO2 -->
-    <div class="card">
+    <div class="card clickable" onclick="location.href='/history?sensor=no2_ppm'">
         <div class="card-icon">&#x1f4a8;</div>
         <div class="card-label">NO<sub>2</sub> (Nitrogen Dioxide)</div>
         <div class="card-value quality" id="no2-quality">—</div>
@@ -60,7 +60,7 @@
     </div>
 
     <!-- CO -->
-    <div class="card">
+    <div class="card clickable" onclick="location.href='/history?sensor=co_ppm'">
         <div class="card-icon">&#x1f4a8;</div>
         <div class="card-label">CO (Carbon Monoxide)</div>
         <div class="card-value quality" id="co-quality">—</div>
@@ -68,7 +68,7 @@
     </div>
 
     <!-- NH3 -->
-    <div class="card">
+    <div class="card clickable" onclick="location.href='/history?sensor=nh3_ppm'">
         <div class="card-icon">&#x1f4a8;</div>
         <div class="card-label">NH<sub>3</sub> (Ammonia)</div>
         <div class="card-value quality" id="nh3-quality">—</div>
