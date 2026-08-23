@@ -13,9 +13,7 @@ Environmental monitoring dashboard for the **Pimoroni Enviro + Air Quality (PIM4
 - **Calibration** — adjustable offsets for all sensors
 
 
-<img width="2852" height="1468" alt="enviro1" src="https://github.com/user-attachments/assets/9fa2e32e-9584-4a14-8f66-d08944620886" />
-<img width="2862" height="1478" alt="enviro2" src="https://github.com/user-attachments/assets/8640a320-171e-4768-9e92-ac5f919e6aab" />
-<img width="2836" height="1488" alt="enviro3" src="https://github.com/user-attachments/assets/098dbc48-a76a-43e6-9b5a-361e733bde98" />
+
 
 
 
