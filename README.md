@@ -16,17 +16,6 @@ Environmental monitoring dashboard for the **Pimoroni Enviro + Air Quality (PIM4
 
 ### 1. Copy this project to your Pi
 
-```bash
-# From this directory:
-scp -r enviro_dashboard pi@<pi-ip>:/home/pi/
-```
-
-Then SSH in and open the project folder:
-
-```bash
-ssh pi@<pi-ip>
-cd /home/pi/enviro_dashboard
-```
 
 ### 2. Enable I2C and SPI on the Pi
 
